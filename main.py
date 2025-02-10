@@ -1,41 +1,5 @@
-import pygame
-import os
-import random
-import numpy as np
-
-pygame.init()
-
-#constantes globais
-SCREEN_HEIGHT = 600
-SCREEN_WIDTH = 1100
-SCREEN = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-
-#sprites
-RUNNING = [pygame.image.load(os.path.join("Assets/Dino", "DinoRun1.png")),
-           pygame.image.load(os.path.join("Assets/Dino", "DinoRun2.png"))]
-
-JUMPING = pygame.image.load(os.path.join("Assets/Dino", "DinoJump.png"))
-
-DUCKING = [pygame.image.load(os.path.join("Assets/Dino", "DinoDuck1.png")),
-           pygame.image.load(os.path.join("Assets/Dino", "DinoDuck2.png"))]
-
-SMALL_CACTUS = [pygame.image.load(os.path.join("Assets/Cactus", "SmallCactus1.png")),
-                pygame.image.load(os.path.join("Assets/Cactus", "SmallCactus2.png")),
-                pygame.image.load(os.path.join("Assets/Cactus", "SmallCactus3.png"))]
-
-
-LARGE_CACTUS = [pygame.image.load(os.path.join("Assets/Cactus", "LargeCactus1.png")),
-                pygame.image.load(os.path.join("Assets/Cactus", "LargeCactus2.png")),
-                pygame.image.load(os.path.join("Assets/Cactus", "LargeCactus3.png"))]
-
-BIRD = [pygame.image.load(os.path.join("Assets/Bird", "Bird1.png")),
-        pygame.image.load(os.path.join("Assets/Bird", "Bird2.png"))]
-
-CLOUD = pygame.image.load(os.path.join("Assets/Other", "Cloud.png"))
-
-BG = pygame.image.load(os.path.join("Assets/Other", "Track.png"))
-
-pygame.image.load(os.path.join("Assets/Other", "Track.png"))
+from setup import *
+from auxiliary import *
 
 class Layer():
     def __init__(self, input_dim, output_dim, weights, bias, activation):
@@ -81,19 +45,6 @@ class Dinossaur:
 
         if self.step_index >=10:
             self.step_index = 0
-
-        '''if userInput[pygame.K_UP] and not self.dino_jump:
-            self.dino_duck = False
-            self.dino_run = False
-            self.dino_jump = True
-        elif userInput[pygame.K_DOWN] and not self.dino_jump:
-            self.dino_duck = True
-            self.dino_run = False
-            self.dino_jump = False
-        elif not (self.dino_jump or userInput[pygame.K_DOWN]):
-            self.dino_duck = False
-            self.dino_run = True
-            self.dino_jump = False'''
         
         if np.argmax(self.predict(x)) == 1 and not self.dino_jump:
             self.dino_duck = False
@@ -200,19 +151,8 @@ class Bird(Obstacles):
         SCREEN.blit(self.image[self.index//5], self.rect)
         self.index += 1
 
-def relu(x, derivative=False):
-    if derivative:
-        return np.where(x <= 0, 0, 1)
-    return np.maximum(0, x)
-
-def random_normal(rows, cols):
-    return np.random.randn(rows, cols)
-
-def ones(rows, cols):
-    return np.ones((rows, cols))
-
-def main():
-    global game_speed, x_pos_bg, y_pos_bg, points, obstacles, x, weights, biases
+def new_gen(weights_list, biases_list):
+    global game_speed, x_pos_bg, y_pos_bg, points, obstacles, x, b_weights, b_biases
     run = True
     clock = pygame.time.Clock()
     cloud = Cloud()
@@ -224,8 +164,8 @@ def main():
     obstacles = []
     players = []
     for i in range(20):
-        weights = random_normal(3, 3)
-        biases = ones(3, 3)
+        weights = weights_list[i]
+        biases = biases_list[i]
         dino = Dinossaur()
         dino.layers.append(Layer(input_dim=3, output_dim=3, weights=weights, bias=biases, activation=relu))
         dino.layers.append(Layer(input_dim=3, output_dim=3, weights=weights, bias=biases, activation=relu))
@@ -254,6 +194,13 @@ def main():
         x_pos_bg -= game_speed
 
     while run:
+        if len(players) <= 1:
+            for layer in players[0].layers:
+                b_weights = layer.weights
+                b_biases = layer.biases
+
+            new_gen(weights_list=[b_weights] * 20, biases_list=[b_biases] * 20)
+
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 run = False
@@ -286,9 +233,7 @@ def main():
             
             for player in players:
                 if player.dino_rect.colliderect(obstacle.rect):
-                        pygame.draw.rect(SCREEN, (255, 0, 0), player.dino_rect, 2)
-
- 
+                        players.remove(player)
 
         background()
         
@@ -299,5 +244,19 @@ def main():
 
         clock.tick(30)
         pygame.display.update()
+        
+def main():
+    weights_list = []
+    biases_list = []
+
+    for i in range(20):
+        weight_set = random_normal(3, 3)
+        biases_set = ones(3, 3)
+
+        weights_list.append(weight_set)
+        biases_list.append(biases_set)
+
+
+    new_gen(weights_list=weights_list, biases_list=biases_list)
 
 main()
