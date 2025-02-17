@@ -78,7 +78,8 @@ class Dinossaur:
         if self.dino_jump:
             self.dino_rect.y -= self.jump_vel * 4
             self.jump_vel -= 0.8
-        if self.jump_vel < -self.JUMP_VEL:
+        if self.dino_rect.y >= self.Y_POS:  # Garante que o dinossauro volte ao chão
+            self.dino_rect.y = self.Y_POS
             self.dino_jump = False
             self.jump_vel = self.JUMP_VEL
 
@@ -151,11 +152,15 @@ class Bird(Obstacles):
         SCREEN.blit(self.image[self.index//5], self.rect)
         self.index += 1
 
+best = 0
+gen_count = 0
+
 def new_gen(weights_list, biases_list):
-    global game_speed, x_pos_bg, y_pos_bg, points, obstacles, x, b_weights, b_biases
+    global game_speed, x_pos_bg, y_pos_bg, points, obstacles, x, b_weights, b_biases, gen_count
     run = True
     clock = pygame.time.Clock()
     cloud = Cloud()
+    gen_count += 1
     game_speed = 14
     x_pos_bg = 0
     y_pos_bg = 380
@@ -163,9 +168,11 @@ def new_gen(weights_list, biases_list):
     font = pygame.font.Font('freesansbold.ttf', 20)
     obstacles = []
     players = []
-    for i in range(20):
-        weights = weights_list[i]
-        biases = biases_list[i]
+    for i in range(50):
+        weights = mutate_weights(weights_list[i])
+        biases = mutate_biases(biases_list[i])
+        #print(weights,'\n---------\n', biases, '\n|||||||||||||||||||||\n')
+        
         dino = Dinossaur()
         dino.layers.append(Layer(input_dim=3, output_dim=3, weights=weights, bias=biases, activation=relu))
         dino.layers.append(Layer(input_dim=3, output_dim=3, weights=weights, bias=biases, activation=relu))
@@ -173,14 +180,22 @@ def new_gen(weights_list, biases_list):
         players.append(dino)
 
     def score():
-        global points, game_speed
+        global points, game_speed, best
         points += 1
         if points % 100 == 0:
             game_speed += 1
+        if points >= best:
+            best = points
+        
 
         text = font.render("points: " + str(points), True, (0, 0, 0))
         textRect = text.get_rect()
         textRect.center = (1000, 40)
+        SCREEN.blit(text, textRect)
+
+        text = font.render("best: " + str(best), True, (0, 0, 0))
+        textRect = text.get_rect()
+        textRect.center = (800, 40)
         SCREEN.blit(text, textRect)
 
     def background():
@@ -194,19 +209,30 @@ def new_gen(weights_list, biases_list):
         x_pos_bg -= game_speed
 
     while run:
-        if len(players) <= 1:
-            for layer in players[0].layers:
-                b_weights = layer.weights
-                b_biases = layer.biases
-
-            new_gen(weights_list=[b_weights] * 20, biases_list=[b_biases] * 20)
-
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 run = False
         SCREEN.fill((255, 255, 255))
         userInput = pygame.key.get_pressed()
 
+        text = font.render("gen: " + str(gen_count), True, (0, 0, 0))
+        textRect = text.get_rect()
+        textRect.center = (100, 40)
+        SCREEN.blit(text, textRect)
+
+
+        if len(players) <= 1:
+            if points > best:
+                for layer in players[0].layers:
+                    b_weights = layer.weights
+                    b_biases = layer.biases
+            
+                new_gen(weights_list=[b_weights] * 20, biases_list=[b_biases] * 20)
+            else:
+                new_gen(weights_list=weights_list, biases_list=biases_list)
+        '''for player in players:
+            if player.dino_rect.y > 300:
+                    players.remove(player)'''
 
         if len(obstacles) > 0:
             obstacle = obstacles[0]
@@ -249,7 +275,7 @@ def main():
     weights_list = []
     biases_list = []
 
-    for i in range(20):
+    for i in range(50):
         weight_set = random_normal(3, 3)
         biases_set = ones(3, 3)
 

@@ -13,3 +13,18 @@ def ones(rows, cols):
 
 def zeros(rows, cols):
     return np.zeros((rows, cols))
+
+'''def mutate(weights, biases):
+    new_weights = weights + np.random.uniform(-1, 1)
+    new_biases = biases + np.random.uniform(-1, 1)
+    return new_weights, new_biases
+    '''
+
+def mutate_weights(weights):
+    new_weights = weights + np.random.uniform(-100, 100)
+    print(new_weights)
+    return new_weights
+
+def mutate_biases(biases):
+    new_biases = biases + np.random.uniform(-10, 10)
+    return new_biases
