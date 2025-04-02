@@ -46,18 +46,18 @@ class Dinossaur:
         if self.step_index >=10:
             self.step_index = 0
         
-        if np.argmax(self.predict(x)) == 1 and not self.dino_jump:
+        if np.argmax(self.predict(x)) == 0 and not self.dino_jump:
             self.dino_duck = False
             self.dino_run = False
             self.dino_jump = True
-        elif np.argmax(self.predict(x)) == 2 and not self.dino_jump:
+        elif np.argmax(self.predict(x)) == 1 and not self.dino_jump:
             self.dino_duck = True
             self.dino_run = False
             self.dino_jump = False
-        elif np.argmax(self.predict(x)) == 2 and not (self.dino_jump or userInput[pygame.K_DOWN]):
+        '''elif np.argmax(self.predict(x)) == 2 and not (self.dino_jump or userInput[pygame.K_DOWN]):
             self.dino_duck = False
             self.dino_run = True
-            self.dino_jump = False
+            self.dino_jump = False'''
 
     def duck(self):
         self.image = self.duck_img[self.step_index // 5]
@@ -84,12 +84,14 @@ class Dinossaur:
             self.jump_vel = self.JUMP_VEL
 
     def predict(self, x):
+        x = np.array(x).reshape(1, -1)
         return self.__feedforward(x)
 
     def __feedforward(self, x):
         self.layers[0].input = x
         for current_layer, next_layer in zip(self.layers, self.layers[1:] + [Layer(0, 0, 0, 0, 0)]):
-            y = np.dot(current_layer.input, current_layer.weights.T) + current_layer.biases
+            #print(f"Input shape: {current_layer.input.shape}, Weights shape: {current_layer.weights.shape}, Biases shape: {current_layer.biases.shape}")
+            y = np.dot(current_layer.input, current_layer.weights) + current_layer.biases
             current_layer._activ_inp = y
             current_layer._activ_out = next_layer.input = current_layer.activation(y)
         return self.layers[-1]._activ_out
@@ -156,7 +158,7 @@ best = 0
 gen_count = 0
 
 def new_gen(weights_list, biases_list):
-    global game_speed, x_pos_bg, y_pos_bg, points, obstacles, x, b_weights, b_biases, gen_count
+    global game_speed, x_pos_bg, y_pos_bg, points, obstacles, x, b_weights, b_biases, gen_count, best
     run = True
     clock = pygame.time.Clock()
     cloud = Cloud()
@@ -169,14 +171,22 @@ def new_gen(weights_list, biases_list):
     obstacles = []
     players = []
     for i in range(50):
-        weights = mutate_weights(weights_list[i])
-        biases = mutate_biases(biases_list[i])
-        #print(weights,'\n---------\n', biases, '\n|||||||||||||||||||||\n')
-        
         dino = Dinossaur()
-        dino.layers.append(Layer(input_dim=3, output_dim=3, weights=weights, bias=biases, activation=relu))
-        dino.layers.append(Layer(input_dim=3, output_dim=3, weights=weights, bias=biases, activation=relu))
-        dino.layers.append(Layer(input_dim=3, output_dim=3, weights=weights, bias=biases, activation=relu))
+
+        layer1_weights = mutate_weights(weights_list[i])
+        layer1_biases = mutate_biases(biases_list[i])
+        dino.layers.append(Layer(4, 10, layer1_weights, layer1_biases, sigmoid))
+        
+        for _ in range(2):
+            layer_weights = mutate_weights(random_normal(10, 10))
+            layer_biases = mutate_biases(zeros(1, 10))
+            
+            dino.layers.append(Layer(10, 10, layer_weights, layer_biases, sigmoid))
+
+        layer_out_weights = mutate_weights(random_normal(10, 2))
+        layer_out_biases = mutate_biases(random_normal(1, 2))
+        dino.layers.append(Layer(10, 2, layer_out_weights, layer_out_biases, sigmoid))
+        
         players.append(dino)
 
     def score():
@@ -223,11 +233,11 @@ def new_gen(weights_list, biases_list):
 
         if len(players) <= 1:
             if points > best:
-                for layer in players[0].layers:
-                    b_weights = layer.weights
-                    b_biases = layer.biases
-            
-                new_gen(weights_list=[b_weights] * 20, biases_list=[b_biases] * 20)
+                best = points
+                b_weights_list = [layer.weights for layer in players[0].layers]
+                b_biases_list = [layer.biases for layer in players[0].layers]
+                new_gen(weights_list=[mutate_weights(w) for w in b_weights_list],
+                        biases_list=[mutate_biases(b) for b in b_biases_list])
             else:
                 new_gen(weights_list=weights_list, biases_list=biases_list)
         '''for player in players:
@@ -236,9 +246,14 @@ def new_gen(weights_list, biases_list):
 
         if len(obstacles) > 0:
             obstacle = obstacles[0]
-            x = [game_speed, obstacle.rect.x, obstacle.rect.x]
+            x = [
+                game_speed / 20,
+                obstacle.rect.y / SCREEN_HEIGHT,
+                (obstacle.rect.x - player.dino_rect.x) / SCREEN_WIDTH,
+                obstacle.rect.width / 50
+                ]
         else:
-            x = [game_speed, SCREEN_WIDTH, 0]
+            x = [game_speed, SCREEN_WIDTH, 0, 0]
 
         
         for player in players:
@@ -276,8 +291,8 @@ def main():
     biases_list = []
 
     for i in range(50):
-        weight_set = random_normal(3, 3)
-        biases_set = ones(3, 3)
+        weight_set = random_normal(4, 10)
+        biases_set = zeros(1, 10)
 
         weights_list.append(weight_set)
         biases_list.append(biases_set)

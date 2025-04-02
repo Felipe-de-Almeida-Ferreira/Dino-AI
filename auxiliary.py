@@ -1,9 +1,17 @@
 import numpy as np
+import sys
 
 def relu(x, derivative=False):
     if derivative:
         return np.where(x <= 0, 0, 1)
     return np.maximum(0, x)
+
+def sigmoid(x, derivative=False):
+    x = np.clip(x, -500, 500)
+    if derivative:
+        y = sigmoid(x)
+        return y*(1 - y)
+    return 1.0/(1.0 + np.exp(-x))
 
 def random_normal(rows, cols):
     return np.random.randn(rows, cols)
@@ -20,11 +28,10 @@ def zeros(rows, cols):
     return new_weights, new_biases
     '''
 
-def mutate_weights(weights):
-    new_weights = weights + np.random.uniform(-100, 100)
-    print(new_weights)
-    return new_weights
+def mutate_weights(weights, mutation_rate=0.1):
+    mutation = np.random.uniform(-mutation_rate, mutation_rate, weights.shape)
+    return weights + mutation
 
-def mutate_biases(biases):
-    new_biases = biases + np.random.uniform(-10, 10)
-    return new_biases
+def mutate_biases(biases, mutation_rate=0.1):
+    mutation = np.random.uniform(-mutation_rate, mutation_rate, biases.shape)
+    return biases + mutation
